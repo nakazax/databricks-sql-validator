@@ -1,0 +1,18 @@
+bundle:
+  name: databricks-sql-validator
+
+variables:
+  catalog:
+    description: Unity Catalog name
+  schema:
+    description: Schema name
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${workspace.host}

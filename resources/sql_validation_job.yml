@@ -1,0 +1,51 @@
+resources:
+  jobs:
+    sql_validation:
+      name: "SQL Validation - Syntax Check"
+
+      parameters:
+        - name: source_folders
+          default: ""
+        - name: exclude_extensions
+          default: .xlsx,.xlsm,.dsx,.isx,.DS_Store
+        - name: output_table_prefix
+          default: ${var.catalog}.${var.schema}.sql_validation_results
+        - name: output_csv_prefix
+          default: /Volumes/${var.catalog}/${var.schema}/raw/validation_results
+        - name: total_batches
+          default: "1000"
+
+      tasks:
+        - task_key: extract_sql
+          notebook_task:
+            notebook_path: ../src/notebooks/01_extract_sql.py
+            base_parameters:
+              source_folders: "{{job.parameters.source_folders}}"
+              exclude_extensions: "{{job.parameters.exclude_extensions}}"
+              output_table_prefix: "{{job.parameters.output_table_prefix}}"
+              output_csv_prefix: "{{job.parameters.output_csv_prefix}}"
+              total_batches: "{{job.parameters.total_batches}}"
+
+        - task_key: validate_syntax
+          depends_on:
+            - task_key: extract_sql
+          for_each_task:
+            inputs: "{{tasks.extract_sql.values.batch_ids}}"
+            concurrency: 100
+            task:
+              task_key: validate_batch
+              notebook_task:
+                notebook_path: ../src/notebooks/02_validate_syntax.py
+                base_parameters:
+                  table_name: "{{tasks.extract_sql.values.output_table}}"
+                  batch_id: "{{input}}"
+                  total_batches: "{{tasks.extract_sql.values.total_batches}}"
+
+        - task_key: export_and_report
+          depends_on:
+            - task_key: validate_syntax
+          notebook_task:
+            notebook_path: ../src/notebooks/03_export_csv.py
+            base_parameters:
+              table_name: "{{tasks.extract_sql.values.output_table}}"
+              output_csv_path: "{{tasks.extract_sql.values.output_csv_path}}"
