@@ -14,5 +14,3 @@ targets:
   dev:
     mode: development
     default: true
-    workspace:
-      host: ${workspace.host}

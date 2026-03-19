@@ -15,13 +15,14 @@ This tool scans SQL files across specified folders, extracts individual SQL stat
 - Template variable detection (`@VAR@` patterns)
 - Parallel batch validation via Databricks For Each tasks
 - CSV export with per-file summary reports
+- **CLI wrapper** for local-to-Databricks workflow (upload, run, download)
 
 ## Architecture
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
 │  01_extract_sql.py  │────▶│ 02_validate_syntax.py│────▶│  03_export_csv.py   │
-│                     │     │  (For Each x1000)    │     │                     │
+│                     │     │  (For Each, auto)    │     │                     │
 │ - Find SQL files    │     │ - EXPLAIN validation │     │ - Detail CSV        │
 │ - Split statements  │     │ - Template var check │     │ - File summary CSV  │
 │ - Write Delta table │     │ - MERGE results      │     │ - Summary report    │
@@ -32,36 +33,53 @@ This tool scans SQL files across specified folders, extracts individual SQL stat
 
 - Databricks workspace with Unity Catalog enabled
 - Databricks CLI (`databricks`) installed and configured
-- SQL files accessible via Unity Catalog Volumes
+- SQL files accessible via Unity Catalog Volumes (or local files via CLI wrapper)
 
 ## Quick Start
 
-### 1. Configure
-
-Edit `databricks.yml` to set your workspace and variables:
-
-```yaml
-targets:
-  dev:
-    workspace:
-      host: https://your-workspace.cloud.databricks.com
-    variables:
-      catalog: your_catalog
-      schema: your_schema
-```
-
-### 2. Deploy
+### 1. Deploy
 
 ```bash
-databricks bundle deploy -t dev
+databricks bundle deploy -t dev \
+  --profile your-profile \
+  --var="catalog=your_catalog" \
+  --var="schema=your_schema"
 ```
 
-### 3. Run
+### 2a. Run (from Volume)
 
 ```bash
 databricks bundle run sql_validation -t dev \
-  --param source_folders="/Volumes/catalog/schema/raw/folder1,/Volumes/catalog/schema/raw/folder2"
+  --profile your-profile \
+  --var="catalog=your_catalog" \
+  --var="schema=your_schema" \
+  --param source_folders="/Volumes/your_catalog/your_schema/volume/folder1"
 ```
+
+### 2b. Run (from local files via CLI)
+
+The CLI wrapper uploads local SQL files to a Volume, runs the job, and downloads results:
+
+```bash
+pip install -e ".[cli]"
+
+python cli/run_validation.py \
+  --source-dir ./sql_files \
+  --catalog my_catalog \
+  --schema my_schema \
+  --volume my_volume \
+  --output-dir ./results
+```
+
+This creates a run directory on the Volume:
+
+```
+/Volumes/{catalog}/{schema}/{volume}/{run_id}/
+├── input/           ← uploaded SQL files
+└── output/          ← result CSVs (downloaded to --output-dir)
+```
+
+See `python cli/run_validation.py --help` for all options.
 
 ## Parameters
 
@@ -71,7 +89,8 @@ databricks bundle run sql_validation -t dev \
 | `exclude_extensions` | File extensions to skip | `.xlsx,.xlsm,.dsx,.isx,.DS_Store` |
 | `output_table_prefix` | Delta table name prefix for results | `${catalog}.${schema}.sql_validation_results` |
 | `output_csv_prefix` | Volume path prefix for CSV output | `/Volumes/${catalog}/${schema}/raw/validation_results` |
-| `total_batches` | Number of parallel validation batches | `1000` |
+| `max_batches` | Max number of parallel validation batches (auto-reduced to statement count) | `1000` |
+| `run_id` | Run identifier for consistent naming (auto-generated if empty) | `""` |
 
 ## Output Schema
 
@@ -111,6 +130,8 @@ databricks-sql-validator/
 ├── .gitignore
 ├── pyproject.toml
 ├── databricks.yml
+├── cli/
+│   └── run_validation.py              # CLI wrapper (upload → run → download)
 ├── src/
 │   └── notebooks/
 │       ├── 01_extract_sql.py          # File discovery + SQL extraction

@@ -12,8 +12,10 @@ resources:
           default: ${var.catalog}.${var.schema}.sql_validation_results
         - name: output_csv_prefix
           default: /Volumes/${var.catalog}/${var.schema}/raw/validation_results
-        - name: total_batches
+        - name: max_batches
           default: "1000"
+        - name: run_id
+          default: ""
 
       tasks:
         - task_key: extract_sql
@@ -24,7 +26,8 @@ resources:
               exclude_extensions: "{{job.parameters.exclude_extensions}}"
               output_table_prefix: "{{job.parameters.output_table_prefix}}"
               output_csv_prefix: "{{job.parameters.output_csv_prefix}}"
-              total_batches: "{{job.parameters.total_batches}}"
+              max_batches: "{{job.parameters.max_batches}}"
+              run_id: "{{job.parameters.run_id}}"
 
         - task_key: validate_syntax
           depends_on:
@@ -39,7 +42,7 @@ resources:
                 base_parameters:
                   table_name: "{{tasks.extract_sql.values.output_table}}"
                   batch_id: "{{input}}"
-                  total_batches: "{{tasks.extract_sql.values.total_batches}}"
+                  batch_count: "{{tasks.extract_sql.values.batch_count}}"
 
         - task_key: export_and_report
           depends_on:

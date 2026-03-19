@@ -21,18 +21,19 @@ dbutils.widgets.text("source_folders", "", "Source Folders")
 dbutils.widgets.text("exclude_extensions", ".xlsx,.xlsm,.dsx,.isx,.DS_Store", "Exclude Extensions")
 dbutils.widgets.text("output_table_prefix", "", "Output Table Prefix")
 dbutils.widgets.text("output_csv_prefix", "", "Output CSV Prefix")
-dbutils.widgets.text("total_batches", "1000", "Total Batches")
+dbutils.widgets.text("max_batches", "1000", "Max Batches")
+dbutils.widgets.text("run_id", "", "Run ID")
 
 SOURCE_FOLDERS = [f.strip() for f in dbutils.widgets.get("source_folders").split(",") if f.strip()]
 EXCLUDE_EXTENSIONS = [e.strip().lower() for e in dbutils.widgets.get("exclude_extensions").split(",") if e.strip()]
 OUTPUT_TABLE_PREFIX = dbutils.widgets.get("output_table_prefix")
 OUTPUT_CSV_PREFIX = dbutils.widgets.get("output_csv_prefix")
-TOTAL_BATCHES = int(dbutils.widgets.get("total_batches"))
+MAX_BATCHES = int(dbutils.widgets.get("max_batches"))
 
-# Append timestamp suffix
-TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
-OUTPUT_TABLE = f"{OUTPUT_TABLE_PREFIX}_{TIMESTAMP}"
-OUTPUT_CSV_PATH = f"{OUTPUT_CSV_PREFIX}_{TIMESTAMP}.csv"
+# Use run_id if provided, otherwise generate timestamp
+RUN_ID = dbutils.widgets.get("run_id").strip() or datetime.now().strftime("%Y%m%d_%H%M%S")
+OUTPUT_TABLE = f"{OUTPUT_TABLE_PREFIX}_{RUN_ID}"
+OUTPUT_CSV_PATH = f"{OUTPUT_CSV_PREFIX}_{RUN_ID}.csv"
 
 print(f"Source Folders: {SOURCE_FOLDERS}")
 print(f"Output Table: {OUTPUT_TABLE}")
@@ -171,11 +172,17 @@ results_df.write.mode("overwrite").saveAsTable(OUTPUT_TABLE)
 count = spark.sql(f"SELECT COUNT(*) as cnt FROM {OUTPUT_TABLE}").collect()[0]["cnt"]
 print(f"Done: {OUTPUT_TABLE} ({count:,} rows)")
 
+# Cap batch count to actual statement count to avoid empty batches
+actual_batches = min(MAX_BATCHES, max(1, count))
+if actual_batches < MAX_BATCHES:
+    print(f"Adjusted batches: {MAX_BATCHES} -> {actual_batches} (based on statement count)")
+
 # Pass values to downstream tasks
 dbutils.jobs.taskValues.set(key="output_table", value=OUTPUT_TABLE)
 dbutils.jobs.taskValues.set(key="output_csv_path", value=OUTPUT_CSV_PATH)
-dbutils.jobs.taskValues.set(key="total_batches", value=str(TOTAL_BATCHES))
-dbutils.jobs.taskValues.set(key="batch_ids", value=str(list(range(TOTAL_BATCHES))))
+dbutils.jobs.taskValues.set(key="batch_count", value=str(actual_batches))
+dbutils.jobs.taskValues.set(key="batch_ids", value=str(list(range(actual_batches))))
+dbutils.jobs.taskValues.set(key="run_id", value=RUN_ID)
 
 # COMMAND ----------
 

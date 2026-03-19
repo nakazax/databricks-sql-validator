@@ -17,14 +17,14 @@ from pyspark.sql.types import StructType, StructField, StringType, BooleanType, 
 
 dbutils.widgets.text("table_name", "", "Table Name")
 dbutils.widgets.text("batch_id", "0", "Batch ID")
-dbutils.widgets.text("total_batches", "1", "Total Batches")
+dbutils.widgets.text("batch_count", "1", "Batch Count")
 
 TABLE_NAME = dbutils.widgets.get("table_name")
 BATCH_ID = int(dbutils.widgets.get("batch_id"))
-TOTAL_BATCHES = int(dbutils.widgets.get("total_batches"))
+BATCH_COUNT = int(dbutils.widgets.get("batch_count"))
 
 print(f"Table: {TABLE_NAME}")
-print(f"Batch: {BATCH_ID + 1} / {TOTAL_BATCHES}")
+print(f"Batch: {BATCH_ID + 1} / {BATCH_COUNT}")
 
 # COMMAND ----------
 
@@ -39,7 +39,7 @@ target_df = spark.sql(f"""
 SELECT folder, relative_path, file_name, statement_index, sql_text
 FROM {TABLE_NAME}
 WHERE syntax_valid IS NULL AND read_status = 'OK'
-  AND MOD(ABS(HASH(folder, relative_path, file_name, statement_index)), {TOTAL_BATCHES}) = {BATCH_ID}
+  AND MOD(ABS(HASH(folder, relative_path, file_name, statement_index)), {BATCH_COUNT}) = {BATCH_ID}
 """)
 
 # Display target SQL statements
