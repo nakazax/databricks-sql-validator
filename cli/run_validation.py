@@ -8,6 +8,7 @@ waits for completion, and downloads the result CSVs.
 import argparse
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -15,23 +16,45 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.jobs import RunLifeCycleState, RunResultState
 
 
-def upload_directory(ws: WorkspaceClient, local_dir: Path, volume_path: str) -> int:
-    """Upload a local directory to a Volume path recursively.
+def upload_directory(ws: WorkspaceClient, local_dir: Path, volume_path: str, max_workers: int = 10) -> int:
+    """Upload a local directory to a Volume path recursively using parallel threads.
 
     Returns the number of files uploaded.
     """
-    count = 0
-    for root, _, files in os.walk(local_dir):
-        for filename in files:
-            if filename.startswith("."):
-                continue
-            local_file = Path(root) / filename
-            relative = local_file.relative_to(local_dir)
-            remote_path = f"{volume_path}/{relative}"
-            with open(local_file, "rb") as f:
-                ws.files.upload(remote_path, f, overwrite=True)
-            count += 1
-    return count
+    files = []
+    for root, _, filenames in os.walk(local_dir):
+        for filename in filenames:
+            if not filename.startswith("."):
+                files.append(Path(root) / filename)
+
+    if not files:
+        return 0
+
+    def upload_one(local_file: Path) -> str:
+        relative = local_file.relative_to(local_dir)
+        remote_path = f"{volume_path}/{relative}"
+        with open(local_file, "rb") as f:
+            ws.files.upload(remote_path, f, overwrite=True)
+        return str(relative)
+
+    uploaded = 0
+    errors = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(upload_one, f): f for f in files}
+        for future in as_completed(futures):
+            try:
+                future.result()
+                uploaded += 1
+                print(f"  Uploaded {uploaded}/{len(files)} files...", end="\r")
+            except Exception as e:
+                errors.append((futures[future], e))
+
+    print()
+    if errors:
+        for path, err in errors:
+            print(f"  Warning: Failed to upload {path}: {err}")
+
+    return uploaded
 
 
 def find_job_by_name(ws: WorkspaceClient, job_name: str) -> int:
@@ -67,27 +90,34 @@ def wait_for_run(ws: WorkspaceClient, run_id: int, poll_interval: int = 30) -> R
         time.sleep(poll_interval)
 
 
-def download_results(ws: WorkspaceClient, volume_path: str, output_dir: Path) -> list[str]:
-    """Download all files from a Volume directory to a local directory.
+def download_results(ws: WorkspaceClient, volume_path: str, output_dir: Path, max_workers: int = 10) -> list[str]:
+    """Download all files from a Volume directory to a local directory using parallel threads.
 
     Returns the list of downloaded file paths.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    downloaded = []
     try:
-        entries = ws.files.list_directory_contents(volume_path)
+        entries = [e for e in ws.files.list_directory_contents(volume_path) if not e.is_directory]
     except Exception:
         print(f"Warning: No files found at {volume_path}")
-        return downloaded
-    for entry in entries:
-        if entry.is_directory:
-            continue
-        name = entry.name
-        resp = ws.files.download(f"{volume_path}/{name}")
-        local_path = output_dir / name
+        return []
+
+    def download_one(entry) -> str:
+        resp = ws.files.download(f"{volume_path}/{entry.name}")
+        local_path = output_dir / entry.name
         with open(local_path, "wb") as f:
             f.write(resp.contents.read())
-        downloaded.append(str(local_path))
+        return str(local_path)
+
+    downloaded = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(download_one, e): e for e in entries}
+        for future in as_completed(futures):
+            try:
+                downloaded.append(future.result())
+            except Exception as e:
+                print(f"  Warning: Failed to download {futures[future].name}: {e}")
+
     return downloaded
 
 
@@ -110,6 +140,7 @@ Examples:
     parser.add_argument("--job-name", default="SQL Validation - Syntax Check", help="Databricks job name")
     parser.add_argument("--max-batches", type=int, default=1000, help="Max number of parallel validation batches (default: 1000)")
     parser.add_argument("--profile", default=None, help="Databricks CLI profile name")
+    parser.add_argument("--upload-workers", type=int, default=10, help="Parallel upload threads (default: 10)")
     parser.add_argument("--poll-interval", type=int, default=30, help="Polling interval in seconds (default: 30)")
 
     args = parser.parse_args()
@@ -131,7 +162,7 @@ Examples:
 
     # Step 1: Upload
     print(f"\n=== Uploading files from {args.source_dir} ===")
-    count = upload_directory(ws, args.source_dir, input_path)
+    count = upload_directory(ws, args.source_dir, input_path, max_workers=args.upload_workers)
     print(f"Uploaded {count} files to {input_path}")
 
     # Step 2: Run job
