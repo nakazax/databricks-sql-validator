@@ -33,10 +33,12 @@ MAX_BATCHES = int(dbutils.widgets.get("max_batches"))
 # Use run_id if provided, otherwise generate timestamp
 RUN_ID = dbutils.widgets.get("run_id").strip() or datetime.now().strftime("%Y%m%d_%H%M%S")
 OUTPUT_TABLE = f"{OUTPUT_TABLE_PREFIX}_{RUN_ID}"
+STAGING_TABLE = f"{OUTPUT_TABLE}_staging"
 OUTPUT_CSV_PATH = f"{OUTPUT_CSV_PREFIX}_{RUN_ID}.csv"
 
 print(f"Source Folders: {SOURCE_FOLDERS}")
 print(f"Output Table: {OUTPUT_TABLE}")
+print(f"Staging Table: {STAGING_TABLE}")
 print(f"Output CSV: {OUTPUT_CSV_PATH}")
 
 # COMMAND ----------
@@ -179,6 +181,7 @@ if actual_batches < MAX_BATCHES:
 
 # Pass values to downstream tasks
 dbutils.jobs.taskValues.set(key="output_table", value=OUTPUT_TABLE)
+dbutils.jobs.taskValues.set(key="staging_table", value=STAGING_TABLE)
 dbutils.jobs.taskValues.set(key="output_csv_path", value=OUTPUT_CSV_PATH)
 dbutils.jobs.taskValues.set(key="batch_count", value=str(actual_batches))
 dbutils.jobs.taskValues.set(key="batch_ids", value=str(list(range(actual_batches))))

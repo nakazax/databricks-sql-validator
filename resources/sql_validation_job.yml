@@ -41,14 +41,24 @@ resources:
                 notebook_path: ../src/notebooks/02_validate_syntax.py
                 base_parameters:
                   table_name: "{{tasks.extract_sql.values.output_table}}"
+                  staging_table: "{{tasks.extract_sql.values.staging_table}}"
                   batch_id: "{{input}}"
                   batch_count: "{{tasks.extract_sql.values.batch_count}}"
 
-        - task_key: export_and_report
+        - task_key: merge_results
           depends_on:
             - task_key: validate_syntax
           notebook_task:
-            notebook_path: ../src/notebooks/03_export_csv.py
+            notebook_path: ../src/notebooks/03_merge_results.py
+            base_parameters:
+              table_name: "{{tasks.extract_sql.values.output_table}}"
+              staging_table: "{{tasks.extract_sql.values.staging_table}}"
+
+        - task_key: export_and_report
+          depends_on:
+            - task_key: merge_results
+          notebook_task:
+            notebook_path: ../src/notebooks/04_export_csv.py
             base_parameters:
               table_name: "{{tasks.extract_sql.values.output_table}}"
               output_csv_path: "{{tasks.extract_sql.values.output_csv_path}}"

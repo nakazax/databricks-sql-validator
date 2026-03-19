@@ -16,14 +16,17 @@ from datetime import datetime
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, IntegerType
 
 dbutils.widgets.text("table_name", "", "Table Name")
+dbutils.widgets.text("staging_table", "", "Staging Table")
 dbutils.widgets.text("batch_id", "0", "Batch ID")
 dbutils.widgets.text("batch_count", "1", "Batch Count")
 
 TABLE_NAME = dbutils.widgets.get("table_name")
+STAGING_TABLE = dbutils.widgets.get("staging_table")
 BATCH_ID = int(dbutils.widgets.get("batch_id"))
 BATCH_COUNT = int(dbutils.widgets.get("batch_count"))
 
 print(f"Table: {TABLE_NAME}")
+print(f"Staging Table: {STAGING_TABLE}")
 print(f"Batch: {BATCH_ID + 1} / {BATCH_COUNT}")
 
 # COMMAND ----------
@@ -116,17 +119,11 @@ if results:
         StructField("syntax_valid", BooleanType(), True),
         StructField("syntax_error", StringType(), True),
     ])
-    spark.createDataFrame(results, schema).createOrReplaceTempView("validated_results")
-    spark.sql(f"""
-    MERGE INTO {TABLE_NAME} t
-    USING validated_results s
-    ON t.folder = s.folder AND t.relative_path = s.relative_path
-       AND t.file_name = s.file_name AND t.statement_index = s.statement_index
-    WHEN MATCHED THEN UPDATE SET syntax_valid = s.syntax_valid, syntax_error = s.syntax_error
-    """)
-    print("Table update complete")
+    results_df = spark.createDataFrame(results, schema)
+    results_df.write.mode("append").saveAsTable(STAGING_TABLE)
+    print(f"Appended {len(results):,} rows to staging table: {STAGING_TABLE}")
 else:
-    print("No records to update")
+    print("No records to write")
 
 print(f"Done: {datetime.now()}")
 

@@ -20,13 +20,13 @@ This tool scans SQL files across specified folders, extracts individual SQL stat
 ## Architecture
 
 ```
-┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
-│  01_extract_sql.py  │────▶│ 02_validate_syntax.py│────▶│  03_export_csv.py   │
-│                     │     │  (For Each, auto)    │     │                     │
-│ - Find SQL files    │     │ - EXPLAIN validation │     │ - Detail CSV        │
-│ - Split statements  │     │ - Template var check │     │ - File summary CSV  │
-│ - Write Delta table │     │ - MERGE results      │     │ - Summary report    │
-└─────────────────────┘     └──────────────────────┘     └─────────────────────┘
+┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────┐
+│ 01_extract   │──▶│ 02_validate      │──▶│ 03_merge_results │──▶│ 04_export    │
+│              │   │ (For Each, auto) │   │                  │   │              │
+│ Find files   │   │ EXPLAIN validate │   │ Staging → Main   │   │ Detail CSV   │
+│ Split SQL    │   │ INSERT staging   │   │ DROP staging     │   │ Summary CSV  │
+│ Write Delta  │   │ (no conflicts)   │   │ (single MERGE)   │   │ Report       │
+└──────────────┘   └──────────────────┘   └──────────────────┘   └──────────────┘
 ```
 
 ## Prerequisites
@@ -136,7 +136,8 @@ databricks-sql-validator/
 │   └── notebooks/
 │       ├── 01_extract_sql.py          # File discovery + SQL extraction
 │       ├── 02_validate_syntax.py      # EXPLAIN-based syntax validation
-│       ├── 03_export_csv.py           # CSV export + summary report
+│       ├── 03_merge_results.py        # Merge staging results into main table
+│       ├── 04_export_csv.py           # CSV export + summary report
 │       └── pyscripts/
 │           ├── sql_utils.py           # SQL comment/statement utilities
 │           └── merge_validation_results.py  # Post-processing merge utility
