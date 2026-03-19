@@ -171,6 +171,18 @@ if len(table_parts) == 3:
 
 results_df.write.mode("overwrite").saveAsTable(OUTPUT_TABLE)
 
+# Pre-create staging table so parallel batches only append (no creation race)
+staging_schema = StructType([
+    StructField("folder", StringType()),
+    StructField("relative_path", StringType()),
+    StructField("file_name", StringType()),
+    StructField("statement_index", IntegerType()),
+    StructField("syntax_valid", BooleanType()),
+    StructField("syntax_error", StringType()),
+])
+spark.createDataFrame([], staging_schema).write.mode("overwrite").saveAsTable(STAGING_TABLE)
+print(f"Staging table created: {STAGING_TABLE}")
+
 count = spark.sql(f"SELECT COUNT(*) as cnt FROM {OUTPUT_TABLE}").collect()[0]["cnt"]
 print(f"Done: {OUTPUT_TABLE} ({count:,} rows)")
 
