@@ -12,7 +12,7 @@ This tool validates SQL file syntax on Databricks. Point it at a directory of SQ
 ### Use Cases
 
 - **SQL migration to Databricks**: Check whether existing SQL files (e.g., from Teradata, Oracle, SQL Server) are valid Databricks Spark SQL syntax before migration.
-- **Lakebridge conversion validation**: Batch-validate SQL files converted by [Databricks Lakebridge](https://github.com/databrickslabs/lakebridge) at scale.
+- **Lakebridge conversion validation**: Batch-validate SQL files converted by [Lakebridge](https://github.com/databrickslabs/lakebridge) at scale.
 - **Migration planning**: Use the result CSVs to plan subsequent work, such as estimating migration effort, prioritizing manual fixes, or tracking conversion progress.
 
 ### How It Works
