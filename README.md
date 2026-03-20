@@ -4,7 +4,9 @@ Validate SQL file syntax on Databricks using Spark SQL `EXPLAIN` with batch para
 
 ## Overview
 
-This tool scans SQL files across specified folders, extracts individual SQL statements, and validates their syntax using Spark SQL's `EXPLAIN` command. It leverages Databricks Jobs' **For Each** task for massively parallel validation.
+This tool scans SQL files across specified folders, extracts individual SQL statements, and validates their syntax using Spark SQL's `EXPLAIN` command.
+
+Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Databricks Jobs' **For Each** task to run up to 100 concurrent validation tasks in parallel.
 
 ## Features
 
@@ -33,7 +35,7 @@ This tool scans SQL files across specified folders, extracts individual SQL stat
 
 - Databricks workspace with Unity Catalog enabled
 - Databricks CLI (`databricks`) installed and configured
-- SQL files accessible via Unity Catalog Volumes (or local files via CLI wrapper)
+- A Unity Catalog catalog, schema, and volume for staging files and results
 
 ## Quick Start
 
@@ -132,6 +134,11 @@ These are passed automatically by the CLI, or manually via `databricks bundle ru
 | `ok_pct` | float | Pass rate (%) |
 | `status` | string | `OK`, `NG`, or `PENDING` |
 
+## Limitations
+
+- Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
+- SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
+
 ## Project Structure
 
 ```
@@ -160,51 +167,10 @@ databricks-sql-validator/
 
 ## Local Development
 
-### Using uv
-
 ```bash
 uv sync --extra dev
 uv run pytest tests/ -v
 ```
-
-### Using pip
-
-```bash
-pip install -e ".[dev]"
-pytest tests/ -v
-```
-
-### Import Check
-
-```bash
-python -c "import sys; sys.path.insert(0, 'src/notebooks/pyscripts'); from sql_utils import remove_sql_comments; print('OK')"
-```
-
-## Merge Utility
-
-The `merge_validation_results.py` script merges a `file_list.csv` with the validation file summary CSV.
-
-### Expected `file_list.csv` Columns
-
-| Column | Description |
-|---|---|
-| `folder` | Folder name (matches validation output `folder`) |
-| `subfolder` | Subfolder path (optional, used to build `relative_path`) |
-| `filename` | File name |
-
-### Usage
-
-```bash
-pip install -e ".[merge]"
-python src/notebooks/pyscripts/merge_validation_results.py file_list.csv validation_results_file_summary.csv
-python src/notebooks/pyscripts/merge_validation_results.py file_list.csv summary.csv --output merged.csv
-```
-
-## Limitations
-
-- `EXPLAIN` runs on the Spark driver only (not distributed across executors), so scaling is achieved via For Each task parallelism (up to 100 concurrent tasks), not by adding executor nodes.
-- Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
-- SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
 
 ## License
 
