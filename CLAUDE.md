@@ -17,6 +17,10 @@ Before committing and pushing, always:
 - Validate step must only append to the staging table, never UPDATE the main table directly (concurrent writes would conflict).
 - Do not hardcode profile, catalog, or schema values in code; they are always passed as parameters.
 
+## DABs Dev Mode
+
+When deploying with `-t dev`, DABs prefixes job names with `[dev <user>]` (e.g., `[dev hiroyuki.nakazato] SQL Validation - Syntax Check`). The job ID also differs per target. Use `databricks jobs list` to find the correct job ID after deployment.
+
 ## Notebooks
 
 Databricks notebook format: `# COMMAND ----------` separators, `# MAGIC %md` for markdown cells. Notebooks use `dbutils` and `spark` (provided by Databricks runtime, not imported).
