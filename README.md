@@ -11,9 +11,9 @@ This tool validates SQL file syntax on Databricks. Point it at a directory of SQ
 
 ### Use Cases
 
-- **SQL migration to Databricks**: Check whether existing SQL files (e.g., from Teradata, Oracle, SQL Server) are compatible with Databricks SQL before migration.
-- **Lakebridge conversion validation**: Evaluate SQL files converted by [Databricks Lakebridge](https://github.com/databrickslabs/lakebridge) to verify conversion accuracy at scale.
-- **Downstream analysis**: Use the result CSVs as input for migration progress tracking, quality reporting, or identifying statements that need manual fixes.
+- **SQL migration to Databricks**: Check whether existing SQL files (e.g., from Teradata, Oracle, SQL Server) are valid Databricks Spark SQL syntax before migration.
+- **Lakebridge conversion validation**: Batch-validate SQL files converted by [Databricks Lakebridge](https://github.com/databrickslabs/lakebridge) at scale.
+- **Migration planning**: Use the result CSVs to plan subsequent work, such as estimating migration effort, prioritizing manual fixes, or tracking conversion progress.
 
 ### How It Works
 
@@ -81,8 +81,6 @@ This creates a run directory on the Volume:
 ├── input/           ← uploaded SQL files
 └── output/          ← result CSVs (downloaded to --output-dir)
 ```
-
-See `python cli/run_validation.py --help` for all options.
 
 > **Claude Code users**: `/deploy` and `/run` slash commands are available for streamlined workflow.
 
