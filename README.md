@@ -29,7 +29,8 @@ The job consists of four sequential steps. The validate step runs as a For Each 
 
 - Databricks workspace with Unity Catalog enabled
 - Databricks CLI (`databricks`) installed and configured
-- A Unity Catalog catalog, schema, and volume for staging files and results
+- A Unity Catalog catalog, schema, and volume created beforehand (the tool does not create these)
+- SQL files with statements separated by semicolons
 - Serverless compute enabled (optimized for serverless jobs; classic compute works but won't start as quickly)
 
 ## Quick Start
