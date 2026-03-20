@@ -200,6 +200,12 @@ python src/notebooks/pyscripts/merge_validation_results.py file_list.csv validat
 python src/notebooks/pyscripts/merge_validation_results.py file_list.csv summary.csv --output merged.csv
 ```
 
+## Limitations
+
+- `EXPLAIN` runs on the Spark driver only (not distributed across executors), so scaling is achieved via For Each task parallelism (up to 100 concurrent tasks), not by adding executor nodes.
+- Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
+- SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) for details.
