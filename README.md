@@ -83,6 +83,25 @@ See `python cli/run_validation.py --help` for all options.
 
 ## Parameters
 
+### CLI (`run_validation.py`)
+
+| Option | Description | Default |
+|---|---|---|
+| `--source-dir` | Local directory containing SQL files | (required) |
+| `--catalog` | Unity Catalog name | (required) |
+| `--schema` | Schema name | (required) |
+| `--volume` | Volume name for staging files | (required) |
+| `--output-dir` | Local directory for result CSVs | `./results` |
+| `--job-name` | Databricks job name | `SQL Validation - Syntax Check` |
+| `--max-batches` | Max number of parallel validation batches | `1000` |
+| `--profile` | Databricks CLI profile name | (env default) |
+| `--upload-workers` | Parallel upload threads | `10` |
+| `--poll-interval` | Polling interval in seconds | `30` |
+
+### Job Parameters
+
+These are passed automatically by the CLI, or manually via `databricks bundle run --param`.
+
 | Parameter | Description | Default |
 |---|---|---|
 | `source_folders` | Comma-separated Volume paths containing SQL files | (required) |
