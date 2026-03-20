@@ -9,9 +9,11 @@ This tool validates SQL file syntax on Databricks. Point it at a directory of SQ
 - **Input**: Local directory containing SQL files (any encoding: UTF-8, Shift-JIS, CP932, EUC-JP)
 - **Output**: Detail CSV (per-statement pass/fail) and file summary CSV (per-file aggregation)
 
-The tool extracts individual SQL statements from each file, then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Databricks Jobs' **For Each** task to run up to 100 concurrent validation tasks in parallel.
+The tool extracts individual SQL statements from each file, then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Lakeflow Jobs' [For Each task](https://docs.databricks.com/aws/en/jobs/for-each) to run up to 100 concurrent validation tasks in parallel.
 
-## Architecture
+## Pipeline
+
+The job consists of four sequential steps. The validate step runs as a For Each task, executing batches in parallel.
 
 ```
 ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────┐
@@ -28,6 +30,7 @@ The tool extracts individual SQL statements from each file, then validates synta
 - Databricks workspace with Unity Catalog enabled
 - Databricks CLI (`databricks`) installed and configured
 - A Unity Catalog catalog, schema, and volume for staging files and results
+- Serverless compute enabled (optimized for serverless jobs; classic compute works but won't start as quickly)
 
 ## Quick Start
 
@@ -65,6 +68,8 @@ This creates a run directory on the Volume:
 ```
 
 See `python cli/run_validation.py --help` for all options.
+
+> **Claude Code users**: `/deploy` and `/run` slash commands are available for streamlined workflow.
 
 ## Parameters
 
@@ -126,11 +131,6 @@ These are passed automatically by the CLI, or manually via `databricks bundle ru
 | `ok_pct` | float | Pass rate (%) |
 | `status` | string | `OK`, `NG`, or `PENDING` |
 
-## Limitations
-
-- Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
-- SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
-
 ## Project Structure
 
 ```
@@ -163,6 +163,11 @@ databricks-sql-validator/
 uv sync --extra dev
 uv run pytest tests/ -v
 ```
+
+## Limitations
+
+- Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
+- SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
 
 ## License
 
