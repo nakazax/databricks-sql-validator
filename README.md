@@ -46,19 +46,9 @@ databricks bundle deploy -t dev \
   --var="schema=your_schema"
 ```
 
-### 2a. Run (from Volume)
+### 2. Run (via CLI)
 
-```bash
-databricks bundle run sql_validation -t dev \
-  --profile your-profile \
-  --var="catalog=your_catalog" \
-  --var="schema=your_schema" \
-  --param source_folders="/Volumes/your_catalog/your_schema/volume/folder1"
-```
-
-### 2b. Run (from local files via CLI)
-
-The CLI wrapper uploads local SQL files to a Volume, runs the job, and downloads results:
+The CLI uploads local SQL files to a Volume, triggers the validation job, and downloads results:
 
 ```bash
 pip install -e ".[cli]"
