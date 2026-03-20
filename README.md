@@ -44,6 +44,12 @@ databricks bundle deploy -t dev \
   --var="schema=your_schema"
 ```
 
+After deployment, find the job ID for the CLI `--job-id` parameter:
+
+```bash
+databricks jobs list --profile your-profile | grep "SQL Validation"
+```
+
 ### 2. Run (via CLI)
 
 The CLI uploads local SQL files to a Volume, triggers the validation job, and downloads results:
@@ -89,6 +95,15 @@ See `python cli/run_validation.py --help` for all options.
 | `--profile` | Databricks CLI profile name | (env default) |
 | `--upload-workers` | Parallel upload threads | `10` |
 | `--poll-interval` | Polling interval in seconds | `30` |
+
+#### How `--max-batches` works
+
+The extract step splits all SQL statements into batches, and each batch becomes one For Each iteration. For example:
+
+- 500 statements with `--max-batches 100` = 100 batches of ~5 statements each, all running in parallel
+- 50 statements with `--max-batches 1000` = auto-reduced to 50 batches (one per statement)
+
+The For Each task runs up to 100 batches concurrently, so setting `--max-batches` higher than 100 still processes only 100 at a time.
 
 ### Job Parameters
 
