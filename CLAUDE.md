@@ -11,11 +11,11 @@ Before committing and pushing, always:
 1. **Run tests**: `uv run pytest tests/ -v`
 2. **Deploy to dev**: `databricks bundle deploy -t dev`  (with appropriate profile and variables)
 
-## Key Design Decisions
+## Rules
 
-- `EXPLAIN` runs on the Spark driver only, so parallelism comes from For Each task (max concurrency: 100), not executor scaling.
-- The CLI (`cli/run_validation.py`) is the primary interface. Job parameters are passed through the CLI; users should not need to call `databricks bundle run` directly.
-- `exclude_extensions` filters non-SQL files (e.g., `.xlsx`, `.DS_Store`) before upload processing.
+- Keep README.md Project Structure section in sync when adding, renaming, or removing files.
+- Validate step must only append to the staging table, never UPDATE the main table directly (concurrent writes would conflict).
+- Do not hardcode profile, catalog, or schema values in code; they are always passed as parameters.
 
 ## Notebooks
 

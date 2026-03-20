@@ -13,7 +13,7 @@ The tool extracts individual SQL statements from each file, then validates synta
 
 ## Pipeline
 
-The job consists of four sequential steps. The validate step runs as a For Each task, executing batches in parallel.
+The job consists of four sequential steps. The validate step runs as a For Each task, executing batches in parallel. Each batch appends results to a staging table (to avoid write conflicts from concurrent tasks), which is then merged into the main table in a single operation.
 
 ```
 ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────┐
