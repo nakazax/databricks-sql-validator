@@ -32,7 +32,10 @@ print(f"Output CSV: {OUTPUT_CSV_PATH}")
 def export_csv(df, output_path):
     """Export a DataFrame to a single CSV file."""
     temp_dir = output_path.replace(".csv", "_temp")
-    df.coalesce(1).write.mode("overwrite").option("header", "true").csv(temp_dir)
+    df.coalesce(1).write.mode("overwrite") \
+        .option("header", "true") \
+        .option("escape", '"') \
+        .csv(temp_dir)
     csv_files = [f.path for f in dbutils.fs.ls(temp_dir) if f.path.endswith(".csv")]
     if csv_files:
         dbutils.fs.cp(csv_files[0], output_path)
