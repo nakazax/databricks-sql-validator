@@ -4,20 +4,12 @@ Validate SQL file syntax on Databricks using Spark SQL `EXPLAIN` with batch para
 
 ## Overview
 
-This tool scans SQL files across specified folders, extracts individual SQL statements, and validates their syntax using Spark SQL's `EXPLAIN` command.
+This tool validates SQL file syntax on Databricks. Point it at a directory of SQL files and it produces per-statement validation results (Delta table + CSV).
 
-Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Databricks Jobs' **For Each** task to run up to 100 concurrent validation tasks in parallel.
+- **Input**: Local directory containing SQL files (any encoding: UTF-8, Shift-JIS, CP932, EUC-JP)
+- **Output**: Detail CSV (per-statement pass/fail) and file summary CSV (per-file aggregation)
 
-## Features
-
-- Recursive file discovery across multiple source folders
-- Multi-encoding support (UTF-8, Shift-JIS, CP932, EUC-JP)
-- Proper SQL comment handling (block comments, line comments, string literals)
-- Statement splitting by semicolon with comment-awareness
-- Template variable detection (`@VAR@` patterns)
-- Parallel batch validation via Databricks For Each tasks
-- CSV export with per-file summary reports
-- **CLI wrapper** for local-to-Databricks workflow (upload, run, download)
+The tool extracts individual SQL statements from each file, then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Databricks Jobs' **For Each** task to run up to 100 concurrent validation tasks in parallel.
 
 ## Architecture
 
