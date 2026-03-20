@@ -57,23 +57,6 @@ def upload_directory(ws: WorkspaceClient, local_dir: Path, volume_path: str, max
     return uploaded
 
 
-def find_job_by_name(ws: WorkspaceClient, job_name: str) -> int:
-    """Find a job by name and return its job_id.
-
-    Supports both exact match and suffix match to handle DABs dev mode
-    prefix (e.g., '[dev user] Job Name').
-    """
-    # Try exact match first
-    for job in ws.jobs.list(name=job_name):
-        return job.job_id
-    # Fall back to suffix match (for DABs dev mode prefix)
-    for job in ws.jobs.list():
-        if job.settings and job.settings.name and job.settings.name.endswith(job_name):
-            print(f"Found job: {job.settings.name}")
-            return job.job_id
-    raise SystemExit(f"Error: Job '{job_name}' not found. Deploy with 'databricks bundle deploy' first.")
-
-
 def wait_for_run(ws: WorkspaceClient, run_id: int, poll_interval: int = 30) -> RunResultState:
     """Wait for a job run to complete and return the result state."""
     while True:
@@ -127,9 +110,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume
-  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume --output-dir ./results
-  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume --profile STAGING
+  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume --job-id 123456
+  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume --job-id 123456 --output-dir ./results
+  %(prog)s --source-dir ./sql_files --catalog my_catalog --schema my_schema --volume my_volume --job-id 123456 --profile STAGING
         """,
     )
     parser.add_argument("--source-dir", required=True, type=Path, help="Local directory containing SQL files")
@@ -137,7 +120,12 @@ Examples:
     parser.add_argument("--schema", required=True, help="Schema name")
     parser.add_argument("--volume", required=True, help="Volume name for staging files")
     parser.add_argument("--output-dir", type=Path, default=Path("./results"), help="Local directory for result CSVs (default: ./results)")
-    parser.add_argument("--job-name", default="SQL Validation - Syntax Check", help="Databricks job name")
+    parser.add_argument("--job-id", required=True, type=int, help="Databricks job ID")
+    parser.add_argument(
+        "--exclude-extensions",
+        default=".xlsx,.xlsm,.dsx,.isx,.DS_Store",
+        help="Comma-separated file extensions to exclude (default: .xlsx,.xlsm,.dsx,.isx,.DS_Store)",
+    )
     parser.add_argument("--max-batches", type=int, default=1000, help="Max number of parallel validation batches (default: 1000)")
     parser.add_argument("--profile", default=None, help="Databricks CLI profile name")
     parser.add_argument("--upload-workers", type=int, default=10, help="Parallel upload threads (default: 10)")
@@ -166,13 +154,13 @@ Examples:
     print(f"Uploaded {count} files to {input_path}")
 
     # Step 2: Run job
-    print(f"\n=== Starting job: {args.job_name} ===")
-    job_id = find_job_by_name(ws, args.job_name)
+    print(f"\n=== Starting job (ID: {args.job_id}) ===")
 
     run_response = ws.jobs.run_now(
-        job_id=job_id,
+        job_id=args.job_id,
         job_parameters={
             "source_folders": input_path,
+            "exclude_extensions": args.exclude_extensions,
             "output_table_prefix": f"{args.catalog}.{args.schema}.sql_validation_results",
             "output_csv_prefix": f"{output_path}/validation_results",
             "max_batches": str(args.max_batches),

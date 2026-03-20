@@ -68,6 +68,7 @@ python cli/run_validation.py \
   --catalog my_catalog \
   --schema my_schema \
   --volume my_volume \
+  --job-id 123456 \
   --output-dir ./results
 ```
 
@@ -91,8 +92,9 @@ See `python cli/run_validation.py --help` for all options.
 | `--catalog` | Unity Catalog name | (required) |
 | `--schema` | Schema name | (required) |
 | `--volume` | Volume name for staging files | (required) |
+| `--job-id` | Databricks job ID | (required) |
 | `--output-dir` | Local directory for result CSVs | `./results` |
-| `--job-name` | Databricks job name | `SQL Validation - Syntax Check` |
+| `--exclude-extensions` | Comma-separated file extensions to exclude | `.xlsx,.xlsm,.dsx,.isx,.DS_Store` |
 | `--max-batches` | Max number of parallel validation batches | `1000` |
 | `--profile` | Databricks CLI profile name | (env default) |
 | `--upload-workers` | Parallel upload threads | `10` |
