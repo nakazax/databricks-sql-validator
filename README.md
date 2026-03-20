@@ -9,6 +9,14 @@ This tool validates SQL file syntax on Databricks. Point it at a directory of SQ
 - **Input**: Local directory containing SQL files (any encoding: UTF-8, Shift-JIS, CP932, EUC-JP)
 - **Output**: Detail CSV (per-statement pass/fail) and file summary CSV (per-file aggregation)
 
+### Use Cases
+
+- **SQL migration to Databricks**: Check whether existing SQL files (e.g., from Teradata, Oracle, SQL Server) are compatible with Databricks SQL before migration.
+- **Lakebridge conversion validation**: Evaluate SQL files converted by [Databricks Lakebridge](https://github.com/databrickslabs/lakebridge) to verify conversion accuracy at scale.
+- **Downstream analysis**: Use the result CSVs as input for migration progress tracking, quality reporting, or identifying statements that need manual fixes.
+
+### How It Works
+
 The tool extracts individual SQL statements from each file, then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Lakeflow Jobs' [For Each task](https://docs.databricks.com/aws/en/jobs/for-each) to run up to 100 concurrent validation tasks in parallel.
 
 ## Pipeline
