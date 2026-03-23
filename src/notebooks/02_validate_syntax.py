@@ -126,4 +126,5 @@ print(f"Done: {datetime.now()}")
 
 valid_count = sum(1 for r in results if r["syntax_valid"] is True)
 invalid_count = sum(1 for r in results if r["syntax_valid"] is False)
-print(f"This batch: OK={valid_count:,}, ERROR={invalid_count:,}")
+flagged_count = sum(1 for r in results if r["syntax_valid"] is False and r.get("syntax_flags"))
+print(f"This batch: OK={valid_count:,}, NG={invalid_count:,} (flagged={flagged_count:,})")

@@ -68,9 +68,10 @@ SELECT
     COUNT(*) as total,
     SUM(CASE WHEN syntax_valid = true THEN 1 ELSE 0 END) as ok,
     SUM(CASE WHEN syntax_valid = false THEN 1 ELSE 0 END) as ng,
+    SUM(CASE WHEN syntax_valid = false AND syntax_flags IS NOT NULL THEN 1 ELSE 0 END) as ng_flagged,
     SUM(CASE WHEN syntax_valid IS NULL AND read_status = 'OK' THEN 1 ELSE 0 END) as pending
 FROM {TABLE_NAME}
 """).collect()[0]
 
-print(f"Total: {summary['total']:,}, OK: {summary['ok']:,}, NG: {summary['ng']:,}, Pending: {summary['pending']:,}")
+print(f"Total: {summary['total']:,}, OK: {summary['ok']:,}, NG: {summary['ng']:,} (flagged={summary['ng_flagged']:,}), Pending: {summary['pending']:,}")
 print(f"Done: {datetime.now()}")
