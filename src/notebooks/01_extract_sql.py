@@ -16,6 +16,7 @@ from collections import Counter
 import os
 
 from pyscripts.sql_utils import remove_sql_comments, split_sql_statements
+from pyscripts.python_sql_extractor import extract_sql_from_python
 
 dbutils.widgets.text("source_folders", "", "Source Folders")
 dbutils.widgets.text("exclude_extensions", ".xlsx,.xlsm,.dsx,.isx,.DS_Store", "Exclude Extensions")
@@ -94,7 +95,7 @@ def read_file_with_encoding(file_path):
         return f.read().decode('utf-8', errors='replace')
 
 
-def create_result(file_info, stmt_idx, sql_text, status, error=None):
+def create_result(file_info, stmt_idx, sql_text, status, error=None, syntax_flags=None):
     """Create a result record."""
     return {
         "folder": file_info["folder"],
@@ -106,6 +107,7 @@ def create_result(file_info, stmt_idx, sql_text, status, error=None):
         "read_error": error,
         "syntax_valid": None,
         "syntax_error": None,
+        "syntax_flags": syntax_flags,
     }
 
 # COMMAND ----------
@@ -130,6 +132,7 @@ output_schema = StructType([
     StructField("read_error", StringType()),
     StructField("syntax_valid", BooleanType()),
     StructField("syntax_error", StringType()),
+    StructField("syntax_flags", StringType()),
 ])
 
 def process_partition(pdf_iter):
@@ -140,12 +143,19 @@ def process_partition(pdf_iter):
             file_info = row.to_dict()
             try:
                 content = read_file_with_encoding(file_info["full_path"])
-                statements = split_sql_statements(content)
+                ext = os.path.splitext(file_info["file_name"])[1].lower()
+                if ext == ".py":
+                    statements = extract_sql_from_python(content)
+                else:
+                    statements = split_sql_statements(content)
                 if not statements:
                     results.append(create_result(file_info, 0, None, "EMPTY", "No SQL statement found"))
                 else:
                     for idx, stmt in enumerate(statements):
                         results.append(create_result(file_info, idx, stmt, "OK"))
+            except ValueError as e:
+                # Python syntax error from extractor
+                results.append(create_result(file_info, 0, None, "READ_ERROR", str(e)))
             except Exception as e:
                 results.append(create_result(file_info, 0, None, "READ_ERROR", str(e)))
         yield pd.DataFrame(results)
@@ -179,6 +189,7 @@ staging_schema = StructType([
     StructField("statement_index", IntegerType()),
     StructField("syntax_valid", BooleanType()),
     StructField("syntax_error", StringType()),
+    StructField("syntax_flags", StringType()),
 ])
 spark.createDataFrame([], staging_schema).write.mode("overwrite").saveAsTable(STAGING_TABLE)
 print(f"Staging table created: {STAGING_TABLE}")

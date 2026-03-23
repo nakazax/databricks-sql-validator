@@ -58,38 +58,26 @@ print(f"Target statements: {len(rows):,}")
 
 # COMMAND ----------
 
-import re
-
-# Template variable pattern (e.g., @TBL@, @IDXSPC@, @TBLSPC@)
-TEMPLATE_VAR_PATTERN = re.compile(r'@([A-Za-z0-9_]+)@')
+from pyscripts.marker_detector import detect_markers  # noqa: E402
 
 def validate_sql(sql_text):
-    """Validate SQL using EXPLAIN."""
+    """Validate SQL using EXPLAIN. Returns (syntax_valid, syntax_error, syntax_flags)."""
     if not sql_text:
-        return (None, "No SQL statement found")
+        return (None, "No SQL statement found", None)
 
-    # Detect and temporarily replace template variables
-    template_vars = TEMPLATE_VAR_PATTERN.findall(sql_text)
-    check_sql = sql_text
-    if template_vars:
-        # Replace @VAR@ with _TEMPLATE_VAR_ for syntax checking
-        check_sql = TEMPLATE_VAR_PATTERN.sub(r'_TEMPLATE_\1_', sql_text)
-
+    syntax_flags = detect_markers(sql_text)
     try:
-        spark.sql(f"EXPLAIN {check_sql}")
-        if template_vars:
-            vars_str = ", ".join(f"@{v}@" for v in sorted(set(template_vars)))
-            return (True, f"INFO: Template variables detected ({vars_str})")
-        return (True, None)
+        spark.sql(f"EXPLAIN {sql_text}")
+        return (True, None, syntax_flags)
     except Exception as e:
         msg = str(e)
         if "JVM stacktrace:" in msg:
             msg = msg[:msg.index("JVM stacktrace:")].strip()
-        return (False, msg[:500] if len(msg) > 500 else msg)
+        return (False, msg[:500] if len(msg) > 500 else msg, syntax_flags)
 
 results = []
 for i, row in enumerate(rows):
-    valid, error = validate_sql(row.sql_text)
+    valid, error, flags = validate_sql(row.sql_text)
     results.append({
         "folder": row.folder,
         "relative_path": row.relative_path,
@@ -97,6 +85,7 @@ for i, row in enumerate(rows):
         "statement_index": row.statement_index,
         "syntax_valid": valid,
         "syntax_error": error,
+        "syntax_flags": flags,
     })
     if (i + 1) % 1000 == 0:
         print(f"Progress: {i + 1}/{len(rows)} ({(i + 1) / len(rows) * 100:.1f}%)")
@@ -118,6 +107,7 @@ if results:
         StructField("statement_index", IntegerType(), True),
         StructField("syntax_valid", BooleanType(), True),
         StructField("syntax_error", StringType(), True),
+        StructField("syntax_flags", StringType(), True),
     ])
     results_df = spark.createDataFrame(results, schema)
     results_df.write.mode("append").saveAsTable(STAGING_TABLE)

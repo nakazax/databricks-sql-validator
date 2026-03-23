@@ -6,7 +6,7 @@ Validate SQL file syntax on Databricks using Spark SQL `EXPLAIN` with batch para
 
 This tool validates SQL file syntax on Databricks. Point it at a directory of SQL files and it produces per-statement validation results (Delta table + CSV).
 
-- **Input**: Local directory containing SQL files (any encoding: UTF-8, Shift-JIS, CP932, EUC-JP)
+- **Input**: Local directory containing SQL files and Python files with `spark.sql()` calls (any encoding: UTF-8, Shift-JIS, CP932, EUC-JP)
 - **Output**: Detail CSV (per-statement pass/fail) and file summary CSV (per-file aggregation)
 
 ### Use Cases
@@ -17,7 +17,7 @@ This tool validates SQL file syntax on Databricks. Point it at a directory of SQ
 
 ### How It Works
 
-The tool extracts individual SQL statements from each file, then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Lakeflow Jobs' [For Each task](https://docs.databricks.com/aws/en/jobs/for-each) to run up to 100 concurrent validation tasks in parallel.
+The tool extracts individual SQL statements from each file (semicolon-split for `.sql` files, AST-based `spark.sql()` extraction for `.py` files), then validates syntax using Spark SQL's `EXPLAIN` command. Since `EXPLAIN` runs only on the Spark driver (not distributed across executors), simply adding nodes does not improve throughput. To work around this, the tool leverages Lakeflow Jobs' [For Each task](https://docs.databricks.com/aws/en/jobs/for-each) to run up to 100 concurrent validation tasks in parallel.
 
 ## Pipeline
 
@@ -139,6 +139,7 @@ These are passed automatically by the CLI, or manually via `databricks bundle ru
 | `read_error` | string | Error message if read failed |
 | `syntax_valid` | boolean | `true` if EXPLAIN succeeded |
 | `syntax_error` | string | Error message if validation failed |
+| `syntax_flags` | string | Detected markers (template vars, params, placeholders) or null |
 
 ### File Summary CSV
 
@@ -150,6 +151,8 @@ These are passed automatically by the CLI, or manually via `databricks bundle ru
 | `sql_count` | int | Total SQL statements in file |
 | `ok_count` | int | Statements that passed validation |
 | `ng_count` | int | Statements that failed validation |
+| `ng_count_flagged` | int | NG statements that have `syntax_flags` (marker-caused) |
+| `ok_count_lenient` | int | Statements that are OK or have `syntax_flags` |
 | `ok_pct` | float | Pass rate (%) |
 | `status` | string | `OK`, `NG`, or `PENDING` |
 
@@ -172,9 +175,13 @@ databricks-sql-validator/
 │       ├── 04_export_csv.py           # CSV export + summary report
 │       └── pyscripts/
 │           ├── sql_utils.py           # SQL comment/statement utilities
+│           ├── python_sql_extractor.py # Extract SQL from Python spark.sql() calls
+│           ├── marker_detector.py     # Detect template vars, params, placeholders
 │           └── merge_validation_results.py  # Post-processing merge utility
 ├── tests/
-│   └── test_sql_utils.py
+│   ├── test_sql_utils.py
+│   ├── test_python_sql_extractor.py
+│   └── test_marker_detector.py
 └── resources/
     └── sql_validation_job.yml         # Databricks Asset Bundle job definition
 ```
@@ -190,6 +197,8 @@ uv run pytest tests/ -v
 
 - Expects serverless jobs (generic compute). Validation results may differ from SQL Warehouses, which sometimes support newer syntax earlier.
 - SQL Scripting and Stored Procedures cannot be validated via `EXPLAIN`.
+- Python file extraction uses AST parsing of `spark.sql()` calls. Variables that cannot be resolved at parse time are replaced with `_PLACEHOLDER_`, which will cause validation failure. The `syntax_flags` column records detected markers so downstream consumers can distinguish these from real syntax errors.
+- Template variables (`@VAR@`), named parameters (`:param`), positional markers (`?`), Databricks widgets (`${var}`), and Jinja templates (`{{ var }}`) are detected and recorded in `syntax_flags` but not replaced before validation. SQL containing these markers will typically fail `EXPLAIN` and appear as NG with a non-null `syntax_flags` value.
 
 ## License
 

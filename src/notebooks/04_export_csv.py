@@ -64,6 +64,8 @@ if TABLE_NAME and OUTPUT_CSV_PATH:
         COUNT(*) as sql_count,
         SUM(CASE WHEN syntax_valid = true THEN 1 ELSE 0 END) as ok_count,
         SUM(CASE WHEN syntax_valid = false THEN 1 ELSE 0 END) as ng_count,
+        SUM(CASE WHEN syntax_valid = false AND syntax_flags IS NOT NULL THEN 1 ELSE 0 END) as ng_count_flagged,
+        SUM(CASE WHEN syntax_valid = true OR syntax_flags IS NOT NULL THEN 1 ELSE 0 END) as ok_count_lenient,
         ROUND(SUM(CASE WHEN syntax_valid = true THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as ok_pct,
         CASE
             WHEN SUM(CASE WHEN syntax_valid = false THEN 1 ELSE 0 END) > 0 THEN 'NG'
@@ -94,12 +96,19 @@ if TABLE_NAME:
 # COMMAND ----------
 
 # Validation results
-print("=== Validation Results ===")
-display(spark.sql(f"""
-SELECT syntax_valid, COUNT(*) as count, ROUND(COUNT(*) * 100.0 / {total}, 1) as pct
+summary = spark.sql(f"""
+SELECT
+    SUM(CASE WHEN syntax_valid = true THEN 1 ELSE 0 END) as ok,
+    SUM(CASE WHEN syntax_valid = false THEN 1 ELSE 0 END) as ng,
+    SUM(CASE WHEN syntax_valid IS NULL AND read_status = 'OK' THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN syntax_valid = false AND syntax_flags IS NOT NULL THEN 1 ELSE 0 END) as ng_with_flags,
+    SUM(CASE WHEN syntax_valid = false AND syntax_flags IS NULL THEN 1 ELSE 0 END) as ng_real
 FROM {TABLE_NAME}
-GROUP BY syntax_valid ORDER BY syntax_valid
-"""))
+""").collect()[0]
+print("=== Validation Results ===")
+print(f"Total: {total:,}, OK: {summary['ok']:,}, NG: {summary['ng']:,}, Pending: {summary['pending']:,}")
+print(f"  NG (real syntax errors): {summary['ng_real']:,}")
+print(f"  NG (with syntax_flags): {summary['ng_with_flags']:,}")
 
 # COMMAND ----------
 

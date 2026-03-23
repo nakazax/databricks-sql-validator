@@ -40,7 +40,7 @@ if staging_count > 0:
     USING {STAGING_TABLE} s
     ON t.folder = s.folder AND t.relative_path = s.relative_path
        AND t.file_name = s.file_name AND t.statement_index = s.statement_index
-    WHEN MATCHED THEN UPDATE SET syntax_valid = s.syntax_valid, syntax_error = s.syntax_error
+    WHEN MATCHED THEN UPDATE SET syntax_valid = s.syntax_valid, syntax_error = s.syntax_error, syntax_flags = s.syntax_flags
     """)
     print("Merge complete")
 else:
